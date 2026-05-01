@@ -199,7 +199,7 @@ def get_tags(target: str, manifests: dict[str, Any]):
         # Tags ending with .0 should not exist
         if tag.endswith(".0"):
             continue
-        if target != "stable":
+        if target != "latest":
             if re.match(OTHER_START_PATTERN(target), tag):
                 tags.add(tag)
         else:
@@ -373,7 +373,7 @@ def generate_changelog(
         # Remove target- from curr
         curr_pretty = re.sub(rf"^[a-z]+-", "", curr_pretty)
         pretty = target.capitalize() + " (F" + curr_pretty
-        if finish and target != "stable":
+        if finish and target != "latest":
             pretty += ", #" + finish[:7]
         pretty += ")"
 
@@ -430,7 +430,7 @@ def main():
     target = args.target.split("/")[-1]
 
     if target == "main":
-        target = "stable"
+        target = "latest"
 
     manifests = get_manifests(target)
     prev, curr = get_tags(target, manifests)
