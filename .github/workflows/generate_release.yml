@@ -1,11 +1,15 @@
 on:
+  workflow_run:
+    workflows: [ "Build MimOS Image" ]
+    types: [ completed ]
+    branches: [ main ]
   workflow_call:
   workflow_dispatch:
     inputs:
       handwritten:
-        description: 'Small changelog about changes in this build:'
+        description: "Small changelog about changes in this build:"
       target:
-        description: 'Release Branch (e.g., testing). Defaults to branch name.'
+        description: "Release Branch (e.g., testing). Defaults to branch name."
 permissions: {}
 
 name: Generate Release

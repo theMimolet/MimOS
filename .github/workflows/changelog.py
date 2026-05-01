@@ -90,6 +90,8 @@ BLACKLIST_VERSIONS = [
     "helium-bin"
 ]
 
+PKG_ALIAS = {}
+
 def get_manifests(target: str):
     output = None
     print(f"Getting {IMAGE}:{target} manifest.")

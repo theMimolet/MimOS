@@ -107,31 +107,40 @@ jobs:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-          oci: false
+          oci: false # Reprocess raw-img using rechunker which will delete it
 
-      # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
-      # This does not make your image faster to download, just provides better resumability and fixes a few errors.
-      # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
-      # You can enable it by uncommenting the following lines:
-      # - name: Run Rechunker
-      #   id: rechunk
-      #   uses: ublue-os/legacy-rechunk@a925083d9af7cb04b3e2a6e8c01bfa495f38b710 # v1.0.0
-      #   with:
-      #     rechunk: 'ghcr.io/ublue-os/legacy-rechunk:v1.0.0-x86_64'
-      #     ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     skip_compression: true
-      #     version: ${{ env.CENTOS_VERSION }}
-      #     labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+      - name: Run Rechunker
+        id: rechunk
+        run: |
+          container=$(sudo buildah from raw-img)
+          mnt=$(sudo buildah mount $container)
+          sudo bash -c "rm -rf $mnt/run/.* $mnt/run/* $mnt/tmp/.* $mnt/tmp/*"
+          sudo buildah umount $container
+          sudo buildah commit --identity-label=false --rm $container raw-img
 
-      # This is necessary so that the podman socket can find the rechunked image on its storage
-      # - name: Load in podman and tag
-      #   run: |
-      #     IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
-      #     sudo rm -rf ${{ steps.rechunk.outputs.output }}
-      #     for tag in ${{ steps.metadata.outputs.tags }}; do
-      #       podman tag $IMAGE ${{ env.IMAGE_NAME }}:$tag
-      #     done
+          sudo podman run --rm --privileged --volume /var/lib/containers:/var/lib/containers \
+              localhost/raw-img \
+              rpm-ostree compose build-chunked-oci \
+              --bootc --max-layers 127 --format-version 2 \
+              --from localhost/raw-img --output containers-storage:localhost/chunked-img
+          sudo podman untag raw-img
+
+          echo "ref=containers-storage:localhost/chunked-img" >> "$GITHUB_OUTPUT"
+
+      - name: Install dgoss
+        run: |
+          curl -L \
+            https://github.com/goss-org/goss/releases/latest/download/goss-linux-amd64 \
+            -o /usr/local/bin/goss
+          chmod +rx /usr/local/bin/goss
+          curl -L \
+            https://github.com/goss-org/goss/releases/latest/download/dgoss \
+            -o /usr/local/bin/dgoss
+          chmod +rx /usr/local/bin/dgoss
+
+      - name: Run goss tests
+        run: |
+          sudo tests/dgoss/dgoss-tests.sh tests/dgoss/tests.d "${{ steps.rechunk.outputs.ref }}"
 
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
       # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
