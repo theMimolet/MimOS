@@ -6,4 +6,4 @@ COPY build /build
 RUN --mount=type=tmpfs,dst=/tmp \
   --mount=type=cache,dst=/var/cache \
   --mount=type=cache,dst=/var/log \
-  /build/build.sh
+  bash /build/build.sh

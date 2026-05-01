@@ -2,9 +2,9 @@
 
 set -ouex pipefail
 
-trap '[[ $BASH_COMMAND != printf* ]] && [[ $BASH_COMMAND != log* ]] && printf "+ $BASH_COMMAND"' DEBUG
+trap '[[ $BASH_COMMAND != echo* ]] && [[ $BASH_COMMAND != log* ]] && echo "+ $BASH_COMMAND"' DEBUG
 
-printf "::group:: === Installing Bazzite-DX Packages ==="
+echo "::group:: === Installing Bazzite-DX Packages ==="
 
 dnf5 install -y \
 	android-tools \
@@ -41,38 +41,78 @@ dnf5 --setopt=install_weak_deps=False install -y \
 	edk2-ovmf \
 	guestfs-tools
 
-printf "::endgroup:: === Finished Bazzite-DX Packages ==="
+echo "::endgroup:: === Installation completed ==="
 
-printf "::group:: === Installing Personal Dev Packages ==="
+echo "::group:: === Setting up Ublue Setup Services ==="
+
+dnf5 install --enable-repo="copr:copr.fedorainfracloud.org:ublue-os:packages" -y \
+	ublue-setup-services
+
+echo "::endgroup:: === Setup completed ==="
+
+echo "::group:: === Installing Docker  ==="
+
+docker_pkgs=(
+	containerd.io
+	docker-buildx-plugin
+	docker-ce
+	docker-ce-cli
+	docker-compose-plugin
+)
+dnf5 config-manager addrepo --from-repofile="https://download.docker.com/linux/fedora/docker-ce.repo"
+dnf5 config-manager setopt docker-ce-stable.enabled=0
+dnf5 install -y --enable-repo="docker-ce-stable" "${docker_pkgs[@]}" || {
+	# Use test packages if docker pkgs is not available for f42
+	if (($(lsb_release -sr) == 42)); then
+		echo "::info::Missing docker packages in f42, falling back to test repos..."
+		dnf5 install -y --enablerepo="docker-ce-test" "${docker_pkgs[@]}"
+	fi
+}
+
+mkdir -p /etc/modules-load.d && cat >>/etc/modules-load.d/ip_tables.conf <<EOF
+iptable_nat
+EOF
+
+echo 'g docker -' >/usr/lib/sysusers.d/docker.conf
+
+echo "::endgroup:: === Installation completed ==="
+
+echo "::group:: === Installing Personal Dev Packages ==="
 
 dnf5 install -y \
 	wireshark \
 	foundry
 
-printf "::group:: === Installing LibreOffice Packages ==="
+echo "::endgroup:: === Installation completed ==="
+
+echo "::group:: === Installing LibreOffice Packages ==="
 
 dnf5 install -y \
 	libreoffice \
 	libreoffice-langpack-fr \
 	libreoffice-langpack-en
 
-printf "::endgroup:: === Finished installing LibreOffice Packages ==="
+echo "::endgroup:: === Installation completed ==="
 
-printf "::group:: === Installing Helium ==="
+echo "::group:: === Installing Helium ==="
 
-dnf5 copr enable imput/helium
-dnf5 install helium-bin
+mkdir -p /var/opt/helium
 
-printf "::endgroup:: === Finished installing Helium ==="
+dnf5 copr enable -y imput/helium
+dnf5 install -y helium-bin
 
-printf "::group:: === Removing Unnecessary Packages ==="
+echo "::endgroup:: === Installation completed ==="
+
+echo "::group:: === Removing Unnecessary Packages ==="
 
 dnf5 remove -y \
 	waydroid \
 	bazzite-portal \
 	kate
 
-printf "::group:: === Enabling Services ==="
+echo "::endgroup:: === Removal completed ==="
+
+echo "::group:: === Enabling Services ==="
 
 systemctl enable docker.socket
 systemctl enable podman.socket
@@ -80,21 +120,21 @@ systemctl enable ublue-system-setup.service
 systemctl --global enable ublue-user-setup.service
 systemctl enable bazzite-dx-groups.service
 
-printf "::endgroup:: === Done enabling services ==="
+echo "::endgroup:: === Done enabling services ==="
 
-printf "::group:: === Starting /opt directory fix ==="
+echo "::group:: === Starting /opt directory fix ==="
 
 # Move directories from /var/opt to /usr/lib/opt
 for dir in /var/opt/*/; do
 	[ -d "$dir" ] || continue
 	dirname=$(basename "$dir")
 	mv "$dir" "/usr/lib/opt/$dirname"
-	printf "L+ /var/opt/$dirname - - - - /usr/lib/opt/$dirname" >>/usr/lib/tmpfiles.d/opt-fix.conf
+	echo "L+ /var/opt/$dirname - - - - /usr/lib/opt/$dirname" >>/usr/lib/tmpfiles.d/opt-fix.conf
 done
 
-printf "::endgroup:: === Fix completed ==="
+echo "::endgroup:: === Fix completed ==="
 
-printf "::group:: === Building initramfs ==="
+echo "::group:: === Building initramfs ==="
 
 # Get kernel version and build initramfs
 KERNEL_VERSION="$(rpm -q --queryformat='%{evr}.%{arch}' kernel)"
@@ -109,9 +149,9 @@ KERNEL_VERSION="$(rpm -q --queryformat='%{evr}.%{arch}' kernel)"
 
 chmod 0600 "/usr/lib/modules/$KERNEL_VERSION/initramfs.img"
 
-printf "::endgroup:: === Build completed ==="
+echo "::endgroup:: === Build completed ==="
 
-printf "::group:: === Starting system cleanup ==="
+echo "::group:: === Starting system cleanup ==="
 
 # Remove unnecessary repositories, except for the fedora ones
 find /etc/yum.repos.d/ -maxdepth 1 -type f -name '*.repo' ! -name 'fedora.repo' ! -name 'fedora-updates.repo' ! -name 'fedora-updates-testing.repo' -exec rm -f {} +
@@ -119,18 +159,23 @@ find /etc/yum.repos.d/ -maxdepth 1 -type f -name '*.repo' ! -name 'fedora.repo' 
 # Clean package manager cache
 dnf5 clean all
 
+# Remove runtime files that may have been generated during the build process
+rm -rf /run/dnf /run/gluster /run/selinux-policy
+
 # Clean temporary files
 rm -rf /tmp/* || true
-rm -rf /var/log/dnf5.log || true
+rm -rf /var/log/dnf5.log* || true
+rm -rf /var/log/firebird/ || true
 rm -rf /boot/* || true
 rm -rf /boot/.* || true
 
-# Cleanup the entirety of `/var`.
-# None of these get in the end-user system and bootc lints get super mad if anything is in there
-rm -rf /var
-mkdir -p /var
+# Remove all directories in /var except for cache and log - which will be delt with by the container build process
+find /var -mindepth 1 -maxdepth 1 \
+	! -name 'cache' \
+	! -name 'log' \
+	-exec rm -rf {} +
 
-# Commit and lint container
+echo "::endgroup:: === Cleanup completed ==="
+
+# Lint container
 bootc container lint
-
-printf "::endgroup:: === Cleanup completed ==="

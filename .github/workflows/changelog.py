@@ -90,10 +90,6 @@ BLACKLIST_VERSIONS = [
     "helium-bin"
 ]
 
-PKG_ALIAS = {
-}
-
-
 def get_manifests(target: str):
     output = None
     print(f"Getting {IMAGE}:{target} manifest.")
@@ -185,6 +181,10 @@ def parse_sbom_packages(sbom: dict) -> dict[str, str]:
         if name and version:
             if name not in packages or (":" in version and ":" not in packages[name]):
                 packages[name] = version
+
+    if not packages:
+        print("  Warning: SBOM parsed but no RPM packages found. Check SBOM format/generator.")
+
     return packages
 
 
@@ -211,7 +211,8 @@ def get_tags(target: str, manifests: dict[str, Any]):
                 tags.remove(tag)
 
     tags = list(sorted(tags))
-    assert len(tags) >= 2, "No current and previous tags found"
+    if len(tags) < 2:
+        raise RuntimeError(f"Not enough tags found for target '{target}' (found {len(tags)}), need at least 2.")
     return tags[-2], tags[-1]
 
 
@@ -288,6 +289,9 @@ def calculate_changes(pkgs: list[str], prev: dict[str, str], curr: dict[str, str
 
 
 def get_commits(prev_manifests, manifests, workdir: str):
+    if not workdir:
+        return ""
+
     try:
         start = next(iter(prev_manifests.values()))["Labels"][
             "org.opencontainers.image.revision"
