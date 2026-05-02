@@ -49,6 +49,28 @@ jobs:
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> ${GITHUB_ENV}
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
+      - name: Show disk space
+        run: sudo df -h
+
+      - name: Check if /mnt is there
+        id: check_mnt
+        run: |
+          if sudo mountpoint /mnt; then
+            echo "mnt_is_there=1" >>$GITHUB_OUTPUT
+          else
+            echo "mnt_is_there=0" >>$GITHUB_OUTPUT
+          fi
+
+      - name: Free Disk Space (Ubuntu)
+        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+
+      - name: Mount BTRFS for podman storage
+        uses: ublue-os/container-storage-action@main
+        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
+        with:
+          target-dir: /var/lib/containers
+
       # These stage versions are pinned by https://github.com/renovatebot/renovate
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -99,6 +121,24 @@ jobs:
           sep-tags: " "
           sep-annotations: " "
 
+      # The image registry name must be lower-case, but GitHub usernames can be capitalized.
+      - name: Get lower-case equivalent of the repository owner's username
+        id: repo_owner_case
+        run: echo "lowercase=${REPO_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      # Generate a file with all the build-args passed to buildah
+      - name: Prepare build args file
+        run: |
+          cat <<'EOF' >>build_args.txt
+          FEDORA_VERSION=${{ matrix.fedora_version }}
+          IMAGE_NAME=${{ matrix.image }}
+          IMAGE_VENDOR=${{ steps.repo_owner_case.outputs.lowercase }}
+          IMAGE_BRANCH=${{ github.ref_name }}
+          VERSION_TAG=${{ env.DEFAULT_TAG }}
+          VERSION_PRETTY="Latest"
+          ARCH=${{ matrix.arch }}
+          EOF
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
@@ -112,23 +152,29 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false # Reprocess raw-img using rechunker which will delete it
 
-      # - name: Run Rechunker
-      #   id: rechunk
-      #   run: |
-      #     container=$(sudo buildah from raw-img)
-      #     mnt=$(sudo buildah mount $container)
-      #     sudo bash -c "rm -rf $mnt/run/.* $mnt/run/* $mnt/tmp/.* $mnt/tmp/*"
-      #     sudo buildah umount $container
-      #     sudo buildah commit --identity-label=false --rm $container raw-img
+      - name: Run Rechunker
+        id: rechunk
+        run: |
+          # Tag buildah output pour podman
+          sudo podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/raw-img
 
-      #     sudo podman run --rm --privileged --volume /var/lib/containers:/var/lib/containers \
-      #         localhost/raw-img \
-      #         rpm-ostree compose build-chunked-oci \
-      #         --bootc --max-layers 127 --format-version 2 \
-      #         --from localhost/raw-img --output containers-storage:localhost/chunked-img
-      #     sudo podman untag raw-img
+          # Nettoyage /run et /tmp avant rechunk
+          container=$(sudo buildah from localhost/raw-img)
+          mnt=$(sudo buildah mount $container)
+          sudo bash -c "rm -rf $mnt/run/.* $mnt/run/* $mnt/tmp/.* $mnt/tmp/*"
+          sudo buildah umount $container
+          sudo buildah commit --identity-label=false --rm $container localhost/raw-img
 
-      #     echo "ref=containers-storage:localhost/chunked-img" >> "$GITHUB_OUTPUT"
+          # Rechunk via rpm-ostree (dispo sur le runner via bazzite base image)
+          sudo podman run --rm --privileged \
+              --volume /var/lib/containers:/var/lib/containers \
+              localhost/raw-img \
+              rpm-ostree compose build-chunked-oci \
+              --bootc --max-layers 127 --format-version 2 \
+              --from localhost/raw-img \
+              --output containers-storage:localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+
+          sudo podman untag localhost/raw-img
 
       # - name: Install dgoss
       #   run: |
