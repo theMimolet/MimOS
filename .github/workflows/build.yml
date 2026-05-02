@@ -49,28 +49,6 @@ jobs:
           echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> ${GITHUB_ENV}
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
 
-      - name: Show disk space
-        run: sudo df -h
-
-      - name: Check if /mnt is there
-        id: check_mnt
-        run: |
-          if sudo mountpoint /mnt; then
-            echo "mnt_is_there=1" >>$GITHUB_OUTPUT
-          else
-            echo "mnt_is_there=0" >>$GITHUB_OUTPUT
-          fi
-
-      - name: Free Disk Space (Ubuntu)
-        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-
-      - name: Mount BTRFS for podman storage
-        uses: ublue-os/container-storage-action@main
-        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
-        with:
-          target-dir: /var/lib/containers
-
       # These stage versions are pinned by https://github.com/renovatebot/renovate
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -152,29 +130,29 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false # Reprocess raw-img using rechunker which will delete it
 
-      - name: Run Rechunker
-        id: rechunk
-        run: |
-          # Tag buildah output pour podman
-          sudo podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/raw-img
+      # - name: Run Rechunker
+      #   id: rechunk
+      #   run: |
+      #     # Tag buildah output pour podman
+      #     sudo podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/raw-img
 
-          # Nettoyage /run et /tmp avant rechunk
-          container=$(sudo buildah from localhost/raw-img)
-          mnt=$(sudo buildah mount $container)
-          sudo bash -c "rm -rf $mnt/run/.* $mnt/run/* $mnt/tmp/.* $mnt/tmp/*"
-          sudo buildah umount $container
-          sudo buildah commit --identity-label=false --rm $container localhost/raw-img
+      #     # Nettoyage /run et /tmp avant rechunk
+      #     container=$(sudo buildah from localhost/raw-img)
+      #     mnt=$(sudo buildah mount $container)
+      #     sudo bash -c "rm -rf $mnt/run/.* $mnt/run/* $mnt/tmp/.* $mnt/tmp/*"
+      #     sudo buildah umount $container
+      #     sudo buildah commit --identity-label=false --rm $container localhost/raw-img
 
-          # Rechunk via rpm-ostree (dispo sur le runner via bazzite base image)
-          sudo podman run --rm --privileged \
-              --volume /var/lib/containers:/var/lib/containers \
-              localhost/raw-img \
-              rpm-ostree compose build-chunked-oci \
-              --bootc --max-layers 127 --format-version 2 \
-              --from localhost/raw-img \
-              --output containers-storage:localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+      #     # Rechunk via rpm-ostree (dispo sur le runner via bazzite base image)
+      #     sudo podman run --rm --privileged \
+      #         --volume /var/lib/containers:/var/lib/containers \
+      #         localhost/raw-img \
+      #         rpm-ostree compose build-chunked-oci \
+      #         --bootc --max-layers 127 --format-version 2 \
+      #         --from localhost/raw-img \
+      #         --output containers-storage:localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
 
-          sudo podman untag localhost/raw-img
+      #     sudo podman untag localhost/raw-img
 
       # - name: Install dgoss
       #   run: |
