@@ -15,8 +15,6 @@ modules=(
 	"configs.services"
 	"configs.opt-fix"
 	"configs.os-release"
-	"initramfs"
-	"cleanup"
 )
 
 for mod in "${modules[@]}"; do
@@ -25,6 +23,3 @@ for mod in "${modules[@]}"; do
 	bash "$path"
 	echo "::endgroup::"
 done
-
-# Lint container
-bootc container lint

@@ -104,19 +104,6 @@ jobs:
         id: repo_owner_case
         run: echo "lowercase=${REPO_OWNER,,}" >> "$GITHUB_OUTPUT"
 
-      # Generate a file with all the build-args passed to buildah
-      - name: Prepare build args file
-        run: |
-          cat <<'EOF' >>build_args.txt
-          FEDORA_VERSION=${{ matrix.fedora_version }}
-          IMAGE_NAME=${{ matrix.image }}
-          IMAGE_VENDOR=${{ steps.repo_owner_case.outputs.lowercase }}
-          IMAGE_BRANCH=${{ github.ref_name }}
-          VERSION_TAG=${{ env.DEFAULT_TAG }}
-          VERSION_PRETTY="Latest"
-          ARCH=${{ matrix.arch }}
-          EOF
-
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
