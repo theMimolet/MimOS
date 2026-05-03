@@ -11,7 +11,7 @@ modules=(
 	"packages.docker"
 	"packages.libreoffice"
 	"packages.helium"
-	"packages.vscodium"
+	"packages.zed"
 	"configs.services"
 	"configs.opt-fix"
 	"configs.os-release"
