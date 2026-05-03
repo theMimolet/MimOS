@@ -25,11 +25,11 @@ RUN dnf5 install -y --enable-repo="docker-ce-stable" \
 	docker-ce \
 	docker-ce-cli \
 	docker-compose-plugin
-RUN mkdir -p /etc/modules-load.d && cat >>/etc/modules-load.d/ip_tables.conf <<EOF
+RUN mkdir -p /etc/modules-load.d /usr/lib/sysusers.d
+
+COPY <<EOF /etc/modules-load.d/ip_tables.conf
 iptable_nat
 EOF
-RUN mkdir -p /usr/lib/sysusers.d
-
 COPY <<EOF /usr/lib/sysusers.d/docker.conf
 g docker -
 EOF
