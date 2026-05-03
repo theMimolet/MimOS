@@ -10,8 +10,7 @@ on:
     branches:
       - main
     paths:
-      - Containerfile
-      - build/**
+      - mimos.containerfile
       - system/**
       - .github/workflows/build.yml
   workflow_dispatch:
