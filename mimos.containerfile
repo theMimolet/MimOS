@@ -25,14 +25,9 @@ RUN dnf5 install -y --enable-repo="docker-ce-stable" \
 	docker-ce \
 	docker-ce-cli \
 	docker-compose-plugin
-RUN mkdir -p /etc/modules-load.d /usr/lib/sysusers.d
-
-COPY <<EOF /etc/modules-load.d/ip_tables.conf
-iptable_nat
-EOF
-COPY <<EOF /usr/lib/sysusers.d/docker.conf
-g docker -
-EOF
+RUN mkdir -p /etc/modules-load.d /usr/lib/sysusers.d && \
+  printf "iptable_nat\n">> /etc/modules-load.d/ip_tables.conf && \
+  printf "g docker -\n" > /usr/lib/sysusers.d/docker.conf
 
 # =============================================
 # Bazzite DX experience packages
