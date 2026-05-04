@@ -60,15 +60,18 @@ jobs:
         if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
 
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
+
       - name: Mount BTRFS for podman storage
-        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
         uses: ublue-os/container-storage-action@main
+        continue-on-error: true
         with:
           target-dir: /var/lib/containers
 
       - name: Mount BTRFS for /var/tmp
-        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
         uses: ublue-os/container-storage-action@main
+        continue-on-error: true
         with:
           target-dir: /var/tmp
 
