@@ -114,11 +114,6 @@ jobs:
           tags: build
           oci: true
 
-      - name: Get Chunkah config
-        id: chunkah_config
-        run: |
-          echo "config=$(sudo buildah inspect localhost/${{ env.IMAGE_NAME }}:build | jq -c .)" >> $GITHUB_OUTPUT
-
       - name: Rechunk Image with Chunkah
         id: rechunk
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
@@ -132,27 +127,6 @@ jobs:
           extra-args: --skip-unused-stages=false
           build-args: |
             SOURCE_IMAGE=localhost/${{ env.IMAGE_NAME }}:build
-            CHUNKAH_CONFIG_STR=${{ steps.chunkah_config.outputs.config }}
-
-      # - name: Rechunk Image with Chunkah
-      #   id: rechunk
-      #   run: |
-      #     # Rechunk the image using chunkah
-      #     SOURCE_IMAGE="containers-storage:localhost/${{ env.IMAGE_NAME }}:build"
-      #     CHUNKAH_CONFIG_STR=$(sudo podman inspect "${SOURCE_IMAGE}" | jq -c .)
-      #     sudo buildah build \
-      #       --skip-unused-stages=false \
-      #       --build-arg SOURCE_IMAGE="${SOURCE_IMAGE}" \
-      #       --build-arg CHUNKAH_CONFIG_STR="${CHUNKAH_CONFIG_STR}" \
-      #       --tag localhost/${{ env.IMAGE_NAME }}:latest \
-      #       -f ./chunkah.containerfile .
-
-      #     # Retags the chunkah-built image
-      #     for tag in ${{ steps.metadata.outputs.tags }}; do
-      #       sudo buildah tag \
-      #       localhost/${{ env.IMAGE_NAME }}:latest \
-      #       localhost/${{ env.IMAGE_NAME }}:${tag##*:}
-      #     done
 
       - name: Push to GHCR
         id: push

@@ -2,9 +2,9 @@ ARG SOURCE_IMAGE="${SOURCE_IMAGE:-localhost/mimos:build}"
 FROM ${SOURCE_IMAGE} AS src
 
 FROM quay.io/coreos/chunkah AS chunkah
-ARG CHUNKAH_CONFIG_STR
 RUN --mount=from=src,src=/,target=/chunkah,ro \
     --mount=type=bind,target=/run/src,rw \
+    CHUNKAH_CONFIG_STR=$(chunkah inspect /chunkah) \
     chunkah build \
         --prune /sysroot/ \
         --max-layers 128 \
