@@ -118,7 +118,7 @@ jobs:
         id: rechunk
         run: |
           # Rechunk the image using chunkah
-          SOURCE_IMAGE="localhost/${{ env.IMAGE_NAME }}:build"
+          SOURCE_IMAGE="containers-storage:localhost/${{ env.IMAGE_NAME }}:build"
           CHUNKAH_CONFIG_STR=$(sudo podman inspect "${SOURCE_IMAGE}" | jq -c .)
           sudo buildah build \
             --skip-unused-stages=false \
