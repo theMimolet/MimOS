@@ -117,7 +117,7 @@ jobs:
       - name: Get Chunkah config
         id: chunkah_config
         run: |
-          echo "config=$(sudo podman inspect localhost/${{ env.IMAGE_NAME }}:build | jq -c .)" >> $GITHUB_OUTPUT
+          echo "config=$(sudo buildah inspect localhost/${{ env.IMAGE_NAME }}:build | jq -c .)" >> $GITHUB_OUTPUT
 
       - name: Rechunk Image with Chunkah
         id: rechunk
