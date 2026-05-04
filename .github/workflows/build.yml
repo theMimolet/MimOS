@@ -66,6 +66,12 @@ jobs:
         with:
           target-dir: /var/lib/containers
 
+      - name: Mount BTRFS for /var/tmp
+        if: ${{ steps.check_mnt.outputs.mnt_is_there == '1' }}
+        uses: ublue-os/container-storage-action@main
+        with:
+          target-dir: /var/tmp
+
       - name: Get lower-case repository owner
         id: repo_owner_case
         run: echo "lowercase=${REPO_OWNER,,}" >> "$GITHUB_OUTPUT"
@@ -118,11 +124,6 @@ jobs:
         run: |
           cat <<EOF >>build_args.txt
           BASE_IMAGE=${{ steps.base.outputs.base_image }}
-          IMAGE_NAME=${{ env.IMAGE_NAME }}
-          IMAGE_VENDOR=${{ steps.repo_owner_case.outputs.lowercase }}
-          IMAGE_BRANCH=${{ github.ref_name }}
-          FEDORA_VERSION=${{ env.FEDORA_VERSION }}
-          VERSION_TAG=${{ steps.labels.outputs.tag }}
           EOF
 
       - name: Restore DNF package cache
