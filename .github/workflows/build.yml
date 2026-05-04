@@ -4,7 +4,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 7 * * 6" # Every Saturday at 7:00 UTC
+    - cron: "30 7 * * 6" # Every Saturday at 7:30 UTC
   push:
     branches:
       - main
@@ -30,8 +30,9 @@ permissions: {}
 
 jobs:
   build:
-    name: Build
+    name: Build and push image
     runs-on: ubuntu-24.04
+
     permissions:
       contents: read
       packages: write
@@ -56,29 +57,14 @@ jobs:
         with:
           mount-opts: compress-force=zstd:2
 
-      - name: Mount BTRFS for /var/tmp
-        id: var-tmp-storage-action
-        uses: ublue-os/container-storage-action@911baca08baf30c8654933e9e9723cb399892140
-        continue-on-error: true
-        with:
-          mount-opts: compress-force=zstd:2
-          target-dir: /var/tmp
-
       - name: Get current date
         id: date
-        run: |
-          # This generates a timestamp like what is defined on the ArtifactHub documentation
-          # E.G: 2022-02-08T15:38:15Z'
-          # https://artifacthub.io/docs/topics/repositories/container-images/
-          # https://linux.die.net/man/1/date
-          echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
+        run: echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
 
       - name: Image Metadata
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         id: metadata
         with:
-          # This generates all the tags for your image, you can add custom tags here too!
-          # Default tags are "$DEFAULT_TAG" and "$DEFAULT_TAG.$date".
           tags: |
             type=raw,value=${{ env.DEFAULT_TAG }}
             type=raw,value=${{ env.DEFAULT_TAG }}.{{date 'YYYYMMDD'}}
@@ -111,7 +97,14 @@ jobs:
           containerfiles: ./mimos.containerfile
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ env.DEFAULT_TAG }}
+          labels: ${{ steps.metadata.outputs.labels }}
           oci: true
+
+      - name: Tag for registry
+        run: |
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            podman tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} ${{ env.IMAGE_NAME }}:$tag
+          done
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
