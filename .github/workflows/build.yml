@@ -146,7 +146,8 @@ jobs:
             --tag raw-img .
 
       - name: Hack around permission issue caching
-        run: sudo chmod 777 --recursive /var/tmp/buildah-cache-0
+        run: |
+          [ -d /var/tmp/buildah-cache-0 ] && sudo chmod 777 --recursive /var/tmp/buildah-cache-0 || true
 
       - name: Save DNF package cache
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
