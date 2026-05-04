@@ -1,15 +1,13 @@
 # MimOS
 
-MimOS is a home-made version of Bazzite that's made to fit my needs. (Dev + gaming on a recent Nvidia card)
+MimOS is a custom system image that's made to fit my needs. :D
 
 ## Why ?
 
-I used to be on Bazzite DX and it was awesome. However, it's based on the Bazzite-Deck images.
-
-I don't personally work on a Steam Deck, and so I don't need all the deck related compatibility and software additions. Moreover, the deck builds are on hold for now because they are overhauling deck-specific features - and knowing there's a vulnerability that has been discovered in the kernel the image was built with, I didn't want to be stuck with it.
-
-So I decided to make my own spin, based on Bazzite stable, that removes what I don't need and adds what I do need. (And also just because :3)
+Why not ? :3
+I'm also making it to learn how some things work and to have a home that fits me.
 
 ## Credits
 
-[Bazzite](https://github.com/ublue-os/bazzite/), for the base image and all the work they did on it. I just made some tweaks to fit my needs, but the core is still theirs.
+Big thanks to [Universal Blue](https://github.com/ublue-os) and the community to have made me discover these tools and making great Operating systems for everyone ❤️ 
+(this is not a goodbye, I'll still be working on stuff, nw)
