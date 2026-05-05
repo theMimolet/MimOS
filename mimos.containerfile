@@ -14,13 +14,12 @@ RUN mkdir -p /var/roothome /var/opt && \
 # =============================================
 
 RUN dnf5 install -y \
-      https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm \
-      https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm \
-      && dnf5 clean all
+    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-44.noarch.rpm \
+    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-44.noarch.rpm \
+    && dnf5 clean all
 RUN dnf5 config-manager addrepo --from-repofile="https://download.docker.com/linux/fedora/docker-ce.repo" && \
     dnf5 config-manager setopt docker-ce-stable.enabled=0 && \
     dnf5 install -y --enable-repo="docker-ce-stable"
-
 RUN dnf5 copr enable -y bieszczaders/kernel-cachyos && \
     dnf5 copr enable -y bieszczaders/kernel-cachyos-addons && \
     dnf5 copr enable -y imput/helium && \
@@ -135,13 +134,13 @@ RUN dnf5 -y install \
 # =============================================
 
 RUN dnf5 -y install \
-      akmod-nvidia \
-      xorg-x11-drv-nvidia \
-      xorg-x11-drv-nvidia-cuda \
-      xorg-x11-drv-nvidia-power \
-      nvidia-vaapi-driver \
-      libva-utils \
-      vdpauinfo
+    akmod-nvidia \
+    xorg-x11-drv-nvidia \
+    xorg-x11-drv-nvidia-cuda \
+    xorg-x11-drv-nvidia-power \
+    nvidia-vaapi-driver \
+    libva-utils \
+    vdpauinfo
 
 # Force akmod to build NOW against the CachyOS kernel, then rebuild initramfs
 RUN akmods --force && \
@@ -152,21 +151,21 @@ RUN akmods --force && \
 # =============================================
 
 RUN dnf5 -y install \
-      steam \
-      lutris \
-      gamemode \
-      gamescope \
-      mangohud \
-      wine \
-      winetricks \
-      protontricks \
-      mesa-vulkan-drivers \
-      mesa-dri-drivers \
-      vulkan-tools \
-      vulkan-loader \
-      lib32-mesa-vulkan-drivers \
-      lib32-gamemode \
-      scx-scheds
+    steam \
+    lutris \
+    gamemode \
+    gamescope \
+    mangohud \
+    wine \
+    winetricks \
+    protontricks \
+    mesa-vulkan-drivers \
+    mesa-dri-drivers \
+    vulkan-tools \
+    vulkan-loader \
+    lib32-mesa-vulkan-drivers \
+    lib32-gamemode \
+    scx-scheds
 
 # =============================================
 # Installing Development Tools
