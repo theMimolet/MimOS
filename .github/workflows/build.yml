@@ -1,8 +1,5 @@
 name: Build MimOS Image
 on:
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: "30 7 * * 6" # Every Saturday at 7:30 UTC
   push:
@@ -23,7 +20,7 @@ env:
   DEFAULT_TAG: "latest"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 permissions: {}
@@ -69,8 +66,6 @@ jobs:
             type=raw,value=${{ env.DEFAULT_TAG }}
             type=raw,value=${{ env.DEFAULT_TAG }}.{{date 'YYYYMMDD'}}
             type=raw,value={{date 'YYYYMMDD'}}
-            type=sha,enable=${{ github.event_name == 'pull_request' }}
-            type=ref,event=pr
           labels: |
             io.artifacthub.package.readme-url=https://raw.githubusercontent.com/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}/${{ github.sha }}/README.md
             org.opencontainers.image.created=${{ steps.date.outputs.date }}
@@ -100,12 +95,6 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           oci: true
 
-      - name: Tag for registry
-        run: |
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            podman tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} ${{ env.IMAGE_NAME }}:$tag
-          done
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
@@ -114,19 +103,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
+      - name: Rechunk image
+        id: rechunk
+        uses: hhd-dev/rechunk@v1
+        with:
+          ref: localhost/${{ steps.build_image.outputs.image }}:${{ env.DEFAULT_TAG }}
+          chunk-size: "512"
+          prev-ref: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          # Output to a local OCI directory
+          out-ref: oci:${{ github.workspace }}/rechunked
+
+      - name: Push rechunked image with all tags via skopeo
+        # skopeo is used instead of push-to-registry because the rechunk output
+        # is an OCI directory, not a podman image. The first tag is pushed as a
+        # full copy; subsequent tags are cheap manifest-only copies within the
+        # registry (no layer re-upload).
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         id: push
-        env:
-          REGISTRY_USER: ${{ github.actor }}
-          REGISTRY_PASSWORD: ${{ github.token }}
-        with:
-          registry: ${{ env.IMAGE_REGISTRY }}
-          image: ${{ env.IMAGE_NAME }}
-          tags: ${{ steps.metadata.outputs.tags }}
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+        run: |
+          TAGS=(${{ steps.metadata.outputs.tags }})
+          PRIMARY="${TAGS[0]}"
+
+          echo "Pushing primary tag: ${PRIMARY}"
+          skopeo copy \
+            --preserve-digests \
+            oci:${{ github.workspace }}/rechunked \
+            docker://${PRIMARY}
+
+          # Alias all remaining tags — reuses layers already uploaded
+          for tag in "${TAGS[@]:1}"; do
+            echo "Tagging: ${tag}"
+            skopeo copy \
+              docker://${PRIMARY} \
+              docker://${tag}
+          done
+
+          # Export digest for cosign
+          DIGEST=$(skopeo inspect docker://${PRIMARY} | jq -r '.Digest')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
